@@ -1,0 +1,471 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"> 
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"> 
+<title>[Crypto] How to crack RSA-512 on off-the-shelf hardware in 4 days</title>
+<link rel="stylesheet" href="https://yurichev.com/style.css">
+<script type="text/x-mathjax-config">
+  MathJax.Hub.Config({
+    tex2jax: {inlineMath: [["$","$"],["\\(","\\)"]]}
+  });
+</script>
+<script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS_HTML-full"></script>
+</head>
+<body>
+<h2>[Crypto] How to crack RSA-512 on off-the-shelf hardware in 4 days</h2>
+
+<!-- blog post begin -->
+
+<p>
+TL;DR: factoring a 512-bit (composite) number on a 6-core AMD Ryzen 5 3600 (64GB of RAM) in 4 days.
+</p>
+
+<h3>Preparing test private/public RSA-512 keys</h3>
+
+<p>
+Here I create a RSA-512 private key using OpenSSL:
+</p>
+
+<pre class="normal">
+openssl genrsa -out keypair.pem 512
+</pre>
+
+<p>
+Extracting a public key from it:
+</p>
+
+<pre class="normal">
+openssl rsa -in keypair.pem -pubout -out pubkey.pub
+</pre>
+
+<p>
+Dumping both keys:
+</p>
+
+<pre class="normal">
+ % openssl rsa -noout -text -in keypair.pem
+
+RSA Private-Key: (512 bit, 2 primes)
+modulus:
+    00:fd:1a:2f:5a:b9:01:4f:85:f7:72:a4:c2:6f:58:
+    43:c8:6a:4c:dc:2b:3f:96:08:8e:e9:ed:4e:c2:92:
+    e4:3c:02:c8:2e:09:63:23:ad:45:6b:92:fa:a7:88:
+    3a:0c:4b:08:cf:aa:fd:b5:64:cd:28:5e:3a:6a:53:
+    20:7c:e9:35:d7
+publicExponent: 65537 (0x10001)
+privateExponent:
+    49:b5:ac:80:d1:4c:2e:6a:a7:6b:bd:cb:da:3d:6c:
+    50:1b:95:12:b1:8d:ad:16:04:f8:df:61:86:8c:dc:
+    e7:14:9c:0f:e0:89:d9:20:fe:9c:6d:9a:be:0c:aa:
+    a3:90:d1:88:7d:85:38:08:19:3d:f0:d0:3f:f0:6a:
+    88:8f:f8:71
+prime1:
+    00:ff:df:13:bd:0e:17:9f:05:41:92:8a:86:53:91:
+    34:fc:51:f2:c2:59:a7:ec:9b:f5:37:74:95:f0:eb:
+    c6:17:55
+prime2:
+    00:fd:3a:c0:67:27:b5:25:ab:72:10:a3:77:8c:b7:
+    d3:cd:00:db:89:e9:25:82:11:24:ec:bc:e9:a8:29:
+    cc:00:7b
+exponent1:
+    00:8d:e4:30:36:fb:f4:9f:6b:b3:c4:46:eb:5c:b6:
+    3e:92:da:02:ec:41:f9:bc:5d:74:2b:af:8c:62:d0:
+    ec:c6:0d
+exponent2:
+    00:f4:2d:24:bd:d3:42:0f:32:c4:68:5a:d7:ba:2e:
+    bf:e2:9b:83:15:f6:64:9e:88:9d:8c:51:95:14:fc:
+    48:a3:e5
+coefficient:
+    7b:be:00:7a:51:cd:5c:b0:ac:f7:be:67:2d:0c:ce:
+    a1:34:cc:ab:7e:06:d4:88:cf:97:b0:b4:43:d9:96:
+    bd:9c
+
+ % openssl rsa -noout -text -inform PEM -pubin -in pubkey.pub
+RSA Public-Key: (512 bit)
+Modulus:
+    00:fd:1a:2f:5a:b9:01:4f:85:f7:72:a4:c2:6f:58:
+    43:c8:6a:4c:dc:2b:3f:96:08:8e:e9:ed:4e:c2:92:
+    e4:3c:02:c8:2e:09:63:23:ad:45:6b:92:fa:a7:88:
+    3a:0c:4b:08:cf:aa:fd:b5:64:cd:28:5e:3a:6a:53:
+    20:7c:e9:35:d7
+Exponent: 65537 (0x10001)
+</pre>
+
+<p>
+Forget the private key for a moment.
+Take only the public key.
+Join hexadecimal numbers of 'Modulus', ignoring colon (':') symbol.
+Convert it to decimal number in Wolfram Mathematica:
+</p>
+
+<pre class="normal">
+In[1]:= 16^^00fd1a2f5ab9014f85f772a4c26f5843c86a4cdc2b3f96088ee9ed4ec292e43c02c82e096323ad456b92faa7883a0c4b08cfaafdb564cd285e3a6a53207ce935d7
+Out[1]:= 13256042284593353982685386592904581600931188946182985378120493025350646620349861342499533434006337407427902755435001220152736225750695462704353038966535639
+
+In[2]:= Log[2, %1] // N
+Out[2]= 511.984
+</pre>
+
+<p>
+Indeed, the 'Modulus' has ~512 bits.
+</p>
+
+<h3>Factoring</h3>
+
+<p>
+<a href="https://cado-nfs.gitlabpages.inria.fr/">CADO-NFS</a> is the state-of-art factoring tool.
+</p>
+
+<p>
+Install it and run:
+</p>
+
+<pre class="normal">
+git clone https://gitlab.inria.fr/cado-nfs/cado-nfs.git
+cd cado-nfs
+make
+cd build/$(hostname)
+python3 ./cado-nfs.py 13256042284593353982685386592904581600931188946182985378120493025350646620349861342499533434006337407427902755435001220152736225750695462704353038966535639
+</pre>
+
+<p>
+Now wait ~4 days. Or more, if your hardware is slower. Or less, if faster.
+</p>
+
+<p>
+Eventually, it will print this:
+</p>
+
+<pre class="normal">
+...
+
+Info:Filtering - Duplicate Removal, removal pass: CPU time for dup2: 802.5999999999999s
+Info:Linear Algebra: Total cpu/real time for bwc: 162309/30174
+Info:Linear Algebra: Aggregate statistics:
+Info:Linear Algebra: Krylov: CPU time 104154.41, WCT time 19350.89, iteration CPU time 0.14, COMM 0.01, cpu-wait 0.01, comm-wait 0.0 (118784 iterations)
+Info:Linear Algebra: Lingen CPU time 1233.97, WCT time 107.94
+Info:Linear Algebra: Mksol: CPU time 55810.1,  WCT time 10470.62, iteration CPU time 0.15, COMM 0.01, cpu-wait 0.01, comm-wait 0.0 (59392 iterations)
+Info:Generate Free Relations: Total cpu/real time for freerel: 480.9/42.4643
+Info:Generate Factor Base: Total cpu/real time for makefb: 28.51/3.17731
+Info:Square Root: Total cpu/real time for sqrt: 6552.17/687.81
+Info:Polynomial Selection (root optimized): Aggregate statistics:
+Info:Polynomial Selection (root optimized): Total time: 9368.04
+Info:Polynomial Selection (root optimized): Rootsieve time: 9366.28
+Info:Filtering - Singleton removal: Total cpu/real time for purge: 883.34/900.631
+Info:HTTP server: Shutting down HTTP server
+Info:Complete Factorization / Discrete logarithm: Total cpu/elapsed time for entire factorization: 3.55505e+06/549.642
+114538955737678332043511344817720090710169002820676417254048008431901325656187 115733919514273107123584393261050157838699796410090632060096329519444848416597
+</pre>
+
+<p>
+These are two primes we need:
+</p>
+
+<pre class="normal">
+114538955737678332043511344817720090710169002820676417254048008431901325656187
+115733919514273107123584393261050157838699796410090632060096329519444848416597
+</pre>
+
+<p>
+Check this in Wolfram Mathematica (or in Python, or in your favorite REPL):
+</p>
+
+<pre class="normal">
+In[]:= prime1 = 114538955737678332043511344817720090710169002820676417254048008431901325656187;
+
+In[]:= prime2 = 115733919514273107123584393261050157838699796410090632060096329519444848416597;
+
+In[]:= prime1*prime2
+Out[]= 13256042284593353982685386592904581600931188946182985378120493025350646620349861342499533434006337407427902755435001220152736225750695462704353038966535639
+</pre>
+
+<h4>Reconstructing private PEM key</h4>
+
+<p>
+The following piece of code do this: it reconstructs all the additional (precomputed) constants as stated in
+<a href="https://datatracker.ietf.org/doc/html/rfc2437">RFC 2437</a>
+and generate a new PEM file for RSA private key.
+</p>
+
+<p>
+I've found it on IRC #crypto (Libera), it was written by Wulf, so many thanks to him.
+I only simplified it a bit by dropping the LCM operation.
+</p>
+
+<pre class="normal">
+#!/usr/bin/python3
+
+# The following code was written by Wulf on #crypto (Libera)
+
+from math import gcd
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric.rsa import (
+    RSAPublicNumbers,
+    RSAPrivateNumbers,
+    rsa_crt_iqmp,
+    rsa_crt_dmp1,
+    rsa_crt_dmq1,
+)
+from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+
+def gcdext(a, b):
+    x0, x1, y0, y1 = 1, 0, 0, 1
+    while b:
+        q, a, b = a // b, b, a % b
+        x0, x1 = x1, x0 - q * x1
+        y0, y1 = y1, y0 - q * y1
+    return a, x0, y0
+
+def invert(a, n):
+    g, x, __ = gcdext(a, n)
+    if g != 1:
+        raise ValueError("Arguments are not coprime")
+    return x % n
+
+e = 65537
+# order doesn't matter:
+p = 115733919514273107123584393261050157838699796410090632060096329519444848416597
+q = 114538955737678332043511344817720090710169002820676417254048008431901325656187
+
+n = p * q
+pub_num = RSAPublicNumbers(e, n)
+d = invert(e, (p - 1) * (q - 1))
+iq = rsa_crt_iqmp(p, q)
+dp = rsa_crt_dmp1(d, p)
+dq = rsa_crt_dmq1(d, q)
+prv_num = RSAPrivateNumbers(p, q, d, dp, dq, iq, pub_num)
+prv = prv_num.private_key(default_backend())  # skip arg in recent versions
+print(prv.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()).decode())
+</pre>
+
+<p>
+It will print this:
+</p>
+
+<pre class="normal">
+-----BEGIN PRIVATE KEY-----
+MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEA/RovWrkBT4X3cqTC
+b1hDyGpM3Cs/lgiO6e1OwpLkPALILgljI61Fa5L6p4g6DEsIz6r9tWTNKF46alMg
+fOk11wIDAQABAkBJtayA0UwuaqdrvcvaPWxQG5USsY2tFgT432GGjNznFJwP4InZ
+IP6cbZq+DKqjkNGIfYU4CBk98NA/8GqIj/hxAiEA/98TvQ4XnwVBkoqGU5E0/FHy
+wlmn7Jv1N3SV8OvGF1UCIQD9OsBnJ7Ulq3IQo3eMt9PNANuJ6SWCESTsvOmoKcwA
+ewIhAI3kMDb79J9rs8RG61y2PpLaAuxB+bxddCuvjGLQ7MYNAiEA9C0kvdNCDzLE
+aFrXui6/4puDFfZknoidjFGVFPxIo+UCIHu+AHpRzVywrPe+Zy0MzqE0zKt+BtSI
+z5ewtEPZlr2c
+-----END PRIVATE KEY-----
+</pre>
+
+<p>
+Let's save it to file and dump it:
+</p>
+
+<pre class="normal">
+ % openssl rsa -noout -text -in new_priv_key.pem
+
+RSA Private-Key: (512 bit, 2 primes)
+modulus:
+    00:fd:1a:2f:5a:b9:01:4f:85:f7:72:a4:c2:6f:58:
+    43:c8:6a:4c:dc:2b:3f:96:08:8e:e9:ed:4e:c2:92:
+    e4:3c:02:c8:2e:09:63:23:ad:45:6b:92:fa:a7:88:
+    3a:0c:4b:08:cf:aa:fd:b5:64:cd:28:5e:3a:6a:53:
+    20:7c:e9:35:d7
+publicExponent: 65537 (0x10001)
+privateExponent:
+    49:b5:ac:80:d1:4c:2e:6a:a7:6b:bd:cb:da:3d:6c:
+    50:1b:95:12:b1:8d:ad:16:04:f8:df:61:86:8c:dc:
+    e7:14:9c:0f:e0:89:d9:20:fe:9c:6d:9a:be:0c:aa:
+    a3:90:d1:88:7d:85:38:08:19:3d:f0:d0:3f:f0:6a:
+    88:8f:f8:71
+prime1:
+    00:ff:df:13:bd:0e:17:9f:05:41:92:8a:86:53:91:
+    34:fc:51:f2:c2:59:a7:ec:9b:f5:37:74:95:f0:eb:
+    c6:17:55
+prime2:
+    00:fd:3a:c0:67:27:b5:25:ab:72:10:a3:77:8c:b7:
+    d3:cd:00:db:89:e9:25:82:11:24:ec:bc:e9:a8:29:
+    cc:00:7b
+exponent1:
+    00:8d:e4:30:36:fb:f4:9f:6b:b3:c4:46:eb:5c:b6:
+    3e:92:da:02:ec:41:f9:bc:5d:74:2b:af:8c:62:d0:
+    ec:c6:0d
+exponent2:
+    00:f4:2d:24:bd:d3:42:0f:32:c4:68:5a:d7:ba:2e:
+    bf:e2:9b:83:15:f6:64:9e:88:9d:8c:51:95:14:fc:
+    48:a3:e5
+coefficient:
+    7b:be:00:7a:51:cd:5c:b0:ac:f7:be:67:2d:0c:ce:
+    a1:34:cc:ab:7e:06:d4:88:cf:97:b0:b4:43:d9:96:
+    bd:9c
+</pre>
+
+<p>
+Hard to believe, but no difference with the original key!
+</p>
+
+<pre class="normal">
+ % diff dump.txt new_dump.txt
+</pre>
+
+<h4>Testing</h4>
+
+<p>
+Do this with the original PEM file.
+</p>
+
+<pre class="normal">
+ % cat hw.txt
+Hello, world!
+</pre>
+
+<p>
+Signing:
+</p>
+
+<pre class="normal">
+ % openssl dgst -sign keypair.pem -keyform PEM -sha256 -out hw.txt.sign -binary hw.txt
+</pre>
+
+<p>
+The (binary) signature:
+</p>
+
+<pre class="normal">
+ % xxd -g 1 hw.txt.sign
+00000000: 9d 30 22 87 12 c1 bf bb 87 e0 54 76 a0 fb a5 cd  .0".......Tv....
+00000010: f0 51 fc 44 e3 52 8f ba dc 82 b7 ca 0a 6a bd 64  .Q.D.R.......j.d
+00000020: 48 c9 30 8a 83 0a 5c 43 7d d6 5a 4a e8 cb d1 cd  H.0...\C}.ZJ....
+00000030: c6 a3 37 ac 49 8f a7 f8 d8 32 76 45 6e 0a bc 95  ..7.I....2vEn...
+</pre>
+
+<p>
+Check the signature:
+</p>
+
+<pre class="normal">
+ % openssl dgst -verify pubkey.pub -keyform PEM -sha256 -signature hw.txt.sign -binary hw.txt
+
+Verified OK
+</pre>
+
+<p>
+Signing the same text file with the reconstructed private key:
+</p>
+
+<pre class="normal">
+ % openssl dgst -sign new_priv_key.pem -keyform PEM -sha256 -out hw.txt.sign -binary hw.txt
+
+ % xxd -g 1 hw.txt.sign
+00000000: 9d 30 22 87 12 c1 bf bb 87 e0 54 76 a0 fb a5 cd  .0".......Tv....
+00000010: f0 51 fc 44 e3 52 8f ba dc 82 b7 ca 0a 6a bd 64  .Q.D.R.......j.d
+00000020: 48 c9 30 8a 83 0a 5c 43 7d d6 5a 4a e8 cb d1 cd  H.0...\C}.ZJ....
+00000030: c6 a3 37 ac 49 8f a7 f8 d8 32 76 45 6e 0a bc 95  ..7.I....2vEn...
+</pre>
+
+<p>
+The new signature has no difference from the original!
+</p>
+
+<h3>The moral of the story</h3>
+
+<p>
+RSA-512 has been <a href="https://en.wikipedia.org/wiki/RSA_numbers#RSA-155">factored as early, as ~20 years ago, in 1999</a>.
+But they needed 6 months and don't know how many hardware.
+</p>
+
+<p>
+Today you can do this without effort.
+</p>
+
+<p>
+CADO-NFS is the powerful tool today for factoring.
+As of Feb-2022, it holds the current RSA factoring world record: <a href="https://en.wikipedia.org/wiki/RSA_numbers#RSA-250">829 bits</a>
+(but running on a big cluster).
+</p>
+
+<p>
+It's widely considered today that RSA-1024 is not safe enough anymore.
+Think about using at least RSA-1536 or RSA-2048.
+</p>
+
+<h3>Other notes</h3>
+
+<p>
+CADO-NFS can print numbers in either order.
+Order doesn't matter: a reconstructing tool in Python can take these numbers in reverse order.
+But text dump will differ slightly (order of numbers again).
+But it will work anyway.
+</p>
+
+<p>
+A further introduction-style reading about RSA you can find in my
+<a href="https://math.recipes/Math-recipes.pdf">Mathematical recipes</a> book.
+</p>
+
+<p>
+All the files I used: <a href="RSA-512.tar">here</a>.
+</p>
+
+<hr>
+
+<p>
+UPD: As seen on reddit (
+<a href="https://www.reddit.com/r/programming/comments/sp4cgo/crypto_how_to_crack_rsa512_on_offtheshelf/">1</a>, 
+<a href="https://www.reddit.com/r/cybersecurity/comments/sq4aez/crypto_how_to_crack_rsa512_on_offtheshelf/">2</a>, 
+<a href="https://www.reddit.com/r/programming/comments/sp4cgo/crypto_how_to_crack_rsa512_on_offtheshelf/">3</a>, 
+<a href="https://www.reddit.com/r/Malware/comments/spxdsg/crypto_how_to_crack_rsa512_on_offtheshelf/">4</a>
+),
+<a href="https://lobste.rs/s/4zri6m/how_crack_rsa_512_on_off_shelf_hardware_4">lobste.rs</a>,
+<a href="https://news.ycombinator.com/item?id=30287042">HN</a>.
+</p>
+
+<p>
+UPD: <a href="https://sekurak.pl/odzyskanie-klucza-prywatnego-do-rsa-512-klucz-publiczny-4-dni-ten-poradnik-klucz-prywatny/">Polish translation</a>.
+</p>
+
+<h3>Further reading in my blog</h3>
+
+<p>
+<a href="https://yurichev.com/news/20220225_Diffie_Hellman/">Cracking Diffie–Hellman key exchange using CADO-NFS + Logjam SSL/TLS attack</a>
+</p>
+
+<!-- blog post end -->
+
+<p><img src="https://yurichev.com/tmp/dot.png?body_20220210_RSA"></p>
+
+<!-- blog footer begin -->
+<hr>
+<p>
+<a href="https://yurichev.com/news/">List of my other blog posts.</a>
+</p>
+
+<p>
+Yes, I know about these lousy Disqus ads.
+Please use adblocker.
+I would consider to subscribe to 'pro' version of Disqus if the signal/noise ratio in comments would be good enough.
+</p>
+
+<div id="disqus_thread"></div>
+<script>
+    /**
+    *  RECOMMENDED CONFIGURATION VARIABLES: EDIT AND UNCOMMENT THE SECTION BELOW TO INSERT DYNAMIC VALUES FROM YOUR PLATFORM OR CMS.
+    *  LEARN WHY DEFINING THESE VARIABLES IS IMPORTANT: https://disqus.com/admin/universalcode/#configuration-variables    */
+    /*
+    var disqus_config = function () {
+    this.page.url = PAGE_URL;  // Replace PAGE_URL with your page's canonical URL variable
+    this.page.identifier = PAGE_IDENTIFIER; // Replace PAGE_IDENTIFIER with your page's unique identifier variable
+    };
+    */
+    (function() { // DON'T EDIT BELOW THIS LINE
+    var d = document, s = d.createElement('script');
+    s.src = 'https://yurichev.disqus.com/embed.js';
+    s.setAttribute('data-timestamp', +new Date());
+    (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+
+<!-- blog footer end -->
+
+</body>
+</html>
+

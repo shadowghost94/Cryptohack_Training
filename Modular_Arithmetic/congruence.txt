@@ -1,0 +1,38 @@
+Les équations que tu as données semblent initialement incorrectes dans le système arithmétique standard. Cependant, elles peuvent être interprétées dans le contexte de l'arithmétique modulaire. Voici comment chaque équation peut être comprise :
+
+### Interprétation dans l'arithmétique modulaire
+
+1. **\(4 + 9 = 1\)** :
+   - Si nous considérons cette équation en utilisant l'arithmétique modulaire avec un modulo de \( 12 \) (comme sur une horloge), nous avons :
+     \[
+     4 + 9 = 13
+     \]
+     - Quand nous faisons \( 13 \mod 12 \), nous obtenons un reste de \( 1 \).
+     - Donc, on peut écrire :
+     \[
+     4 + 9 \equiv 1 \mod 12
+     \]
+
+2. **\(5 - 7 = 10\)** :
+   - Ici, nous pouvons interpréter \( 5 - 7 \) comme \( -2 \). Si nous voulons le représenter dans un système modulo \( 12 \), nous devons ajouter \( 12 \) pour obtenir un résultat positif :
+     \[
+     5 - 7 = -2 + 12 = 10
+     \]
+     - Ainsi, on peut écrire :
+     \[
+     5 - 7 \equiv 10 \mod 12
+     \]
+
+3. **\(2 + 3 = 5\)** :
+   - Cette équation est correcte dans l'arithmétique standard. En effet :
+     \[
+     2 + 3 = 5
+     \]
+     - Elle reste également valable dans l'arithmétique modulaire (par exemple, modulo \( 12 \)):
+     \[
+     2 + 3 \equiv 5 \mod 12
+     \]
+
+### Conclusion
+
+Ces équations démontrent comment l'arithmétique modulaire peut donner des résultats qui semblent différents de ceux que nous attendons dans l'arithmétique classique. Elles montrent également comment manipuler des valeurs pour obtenir des résultats dans un système cyclique, comme les heures sur une horloge. Dans ce contexte, il est crucial de préciser le modulo utilisé pour que les équations aient un sens.
