@@ -1,0 +1,6 @@
+Techniques d'attaque RSA
+1- exposant public e faible
+    Plus e est faible, plus est facile de calculer les facteurs premiers du modulus
+2- Utilsation d'un seul facteur premier au lieu de deux (N = p*q)
+    Si on utilise un seul facteur premier, alors phi(n) = (p-1)
+    on peut donc calculer facilement d en faisant d = mod_inverse(e, phi(n))

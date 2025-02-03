@@ -1,0 +1,4 @@
+plaintext = bloc1 + bloc2 + bloc3
+c1 = AES(bloc1 ^ IV)
+c2 = AES(bloc2 ^ c1)
+c3 = AES(bloc3 ^ c2)
