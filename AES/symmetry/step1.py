@@ -1,0 +1,7 @@
+x = "8a6688978c28a8a30a806dca9b306df7fcd94c6e70016d1c8286456eafc4e2d87ad06741ffd1bf267c76a9352380b77824"
+y = x[32:]
+print(f"ciphertext: {y}")
+print(f"iv: {x[:32]}")
+
+flag = bytes.fromhex("63727970746f7b3066625f31355f35796d6d3337723163346c5f2121213131217d")
+print(flag)
