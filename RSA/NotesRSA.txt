@@ -4,3 +4,6 @@ Techniques d'attaque RSA
 2- Utilsation d'un seul facteur premier au lieu de deux (N = p*q)
     Si on utilise un seul facteur premier, alors phi(n) = (p-1)
     on peut donc calculer facilement d en faisant d = mod_inverse(e, phi(n))
+3-Technique de factorisation basé sur le fait que l'un des facteurs premiers est beaucoup plus petit que l'autre
+    ECM (Elliptic Curve Method)
+    si un des facteurs à une taille d'environ 80 bits soit 25 décimaux
